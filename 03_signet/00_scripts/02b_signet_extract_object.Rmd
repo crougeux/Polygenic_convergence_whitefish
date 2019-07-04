@@ -1,0 +1,80 @@
+---
+title: "Accéder à des objets"
+output: html_notebook
+---
+
+# libraries needed
+```{r libraries}
+if (!require("purrr")) install.packages("purrr") # to install
+if (!require("stringi")) install.packages("stringi") # to install
+if (!require("rlang")) install.packages("rlang") # to install
+if (!require("readr")) install.packages("readr") # to install
+library(purrr)
+library(stringi)
+library(rlang)
+library(readr)
+```
+
+# Get the data
+```{r load object, include=FALSE}
+load(HSS_all)
+```
+
+These are the object we want to extract, and one deeply nested called "network".
+
+Put those in a vector
+```{r}
+df.names <- names(HSS_all)
+```
+
+
+
+# create a funtion to extract all dataframes or list inside `HSS_all`
+```{r}
+extract_df <- function(df.names, list.df, object_to_extract = "network", print.object = FALSE) {
+  # df.names <- df.names[1]
+  # list.df <- HSS_all
+  message("Extracting: ", df.names)
+  if (rlang::has_name(list.df[[df.names]], object_to_extract)) {
+    df.new.name <- stringi::stri_replace_all_fixed(
+        str = df.names,
+        pattern = c(" ", "/"), replacement = c("_", "_"),
+        vectorize_all = FALSE)
+    
+    if (print.object) {
+      assign(
+        x = df.new.name,
+        value = list.df[[df.names]][[object_to_extract]] %>% 
+          dplyr::mutate(VOIE_METABO = rep(rlang::UQ(df.new.name), n())),
+        pos = 1
+      )
+      readr::write_tsv(
+      x = eval(as.name(df.new.name)),
+                               path = stringi::stri_join(df.new.name, ".tsv"))
+      res <- list.df[[df.names]][[object_to_extract]] %>% 
+        dplyr::mutate(VOIE_METABO = rep(rlang::UQ(df.new.name), n())) %>% 
+        dplyr::mutate_at(.tbl = ., .vars = c("gene", "VOIE_METABO"), .funs = as.character)
+    } else {
+      res <- list.df[[df.names]][[object_to_extract]] %>% 
+        dplyr::mutate(VOIE_METABO = rep(rlang::UQ(df.new.name), n())) %>% 
+        dplyr::mutate_at(.tbl = ., .vars = c("gene", "VOIE_METABO"), .funs = as.character)
+    }
+  } else {
+    message("    ", df.names, ": doesn't have the object ", object_to_extract)
+  }
+
+}#extract_df
+```
+
+
+```{r echo=TRUE}
+# xx in name to have the last object in R
+xxvoie.metabo <- purrr::map_df(
+  .x = df.names,
+  .f = extract_df,
+  list.df = HSS_all,
+  object_to_extract = "network",#default
+  print.object = FALSE #default with TRUE will print in directory and R Global Environment
+  )
+```
+
